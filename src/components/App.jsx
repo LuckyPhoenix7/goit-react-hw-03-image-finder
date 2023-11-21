@@ -39,7 +39,7 @@ export class App extends Component {
     try {
       this.setState({ loading: true, error: false });
 
-      const imagesData = await fetchImages(this.state.query);
+      const imagesData = await fetchImages(this.state.query, this.state.page);
       if (imagesData.hits.length === 0) {
         toast.error('Картинки не найдены!');
         return;
@@ -49,7 +49,7 @@ export class App extends Component {
         images: [...prevState.images, ...imagesData.hits],
       }));
 
-      toast.success('Картинки успешно найдены!');
+      toast.success('Картинки успешно загружены!');
     } catch (error) {
       this.setState({ error: true });
     } finally {
