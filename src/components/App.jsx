@@ -1,76 +1,84 @@
 import { Component } from 'react';
-import { ContactList } from './ContactList/ContactList';
-import { ContactForm } from './ContactForm/ContactForm';
-import { nanoid } from 'nanoid';
-import { Filter } from './Filter/Filter';
-import { Layout, FirstTitle, SecondTitle } from './Layout';
+import toast, { Toaster } from 'react-hot-toast';
+import { fetchImages } from './api';
+import { Layout } from './Layout';
+import { Searchbar } from './Searchbar/Searchbar';
+import { ImageGallery } from './ImageGallery/ImageGallery';
+import { Loader } from './Loader/Loader';
+import { LoadMore } from './LoadMore/LoadMore';
+import { ErrorMes } from './ErrorMes/ErrorMes';
 
 export class App extends Component {
   state = {
-    contacts: [
-      { id: 'id-1', name: 'Rosie Simpson', number: '459-12-56' },
-      { id: 'id-2', name: 'Hermione Kline', number: '443-89-12' },
-      { id: 'id-3', name: 'Eden Clements', number: '645-17-79' },
-      { id: 'id-4', name: 'Annie Copeland', number: '227-91-26' },
-    ],
-    filter: '',
+    query: '',
+    images: [],
+    page: 1,
+    loading: false,
+    error: false,
   };
 
-  componentDidMount() {
-    const savedContacts = localStorage.getItem('contacts');
+  onQuery = value => {
+    const currentValue = value.toLowerCase();
 
-    if (savedContacts !== null) {
-      this.setState({ contacts: JSON.parse(savedContacts) });
+    if (currentValue.trim() === '') {
+      toast.error('Введите название для поиска!');
     }
-  }
+
+    this.setState({
+      query: currentValue,
+      page: 1,
+      images: [],
+    });
+  };
+
+  onLoadMore = () => {
+    this.setState(prevState => ({ page: prevState.page + 1 }));
+  };
+
+  onAddImages = async () => {
+    try {
+      this.setState({ loading: true, error: false });
+
+      const imagesData = await fetchImages(this.state.query);
+      if (imagesData.hits.length === 0) {
+        toast.error('Картинки не найдены!');
+        return;
+      }
+
+      this.setState(prevState => ({
+        images: [...prevState.images, ...imagesData.hits],
+      }));
+
+      toast.success('Картинки успешно найдены!');
+    } catch (error) {
+      this.setState({ error: true });
+    } finally {
+      this.setState({ loading: false });
+    }
+  };
 
   componentDidUpdate(prevProps, prevState) {
-    if (prevState.contacts !== this.state.contacts) {
-      localStorage.setItem('contacts', JSON.stringify(this.state.contacts));
+    if (
+      prevState.query !== this.state.query ||
+      prevState.page !== this.state.page
+    ) {
+      this.onAddImages();
     }
   }
 
-  addContact = newContact => {
-    if (this.state.contacts.some(({ name }) => name === newContact.name)) {
-      alert(`Контакт ${newContact.name} уже существует!`);
-    } else {
-      this.setState(prevState => ({
-        contacts: [...prevState.contacts, { ...newContact, id: nanoid() }],
-      }));
-    }
-  };
-
-  deleteContact = contactId => {
-    this.setState(prevState => ({
-      contacts: prevState.contacts.filter(({ id }) => id !== contactId),
-    }));
-  };
-
-  contactFilter = value => {
-    this.setState(prevState => ({
-      ...prevState,
-      filter: value,
-    }));
-  };
-
   render() {
-    const { contacts, filter } = this.state;
-    const visibleContact = contacts.filter(({ name }) =>
-      name.toLowerCase().includes(filter.toLowerCase())
-    );
+    const { images, loading, error } = this.state;
 
     return (
       <Layout>
-        <FirstTitle>Phonebook</FirstTitle>
-        <ContactForm addContact={this.addContact} />
-
-        <SecondTitle>Contacts</SecondTitle>
-        <Filter onChangeFilter={this.contactFilter} />
-
-        <ContactList
-          contactsBook={visibleContact}
-          onDelete={this.deleteContact}
-        />
+        <Searchbar onSubmit={this.onQuery} />
+        {loading && <Loader />}
+        {error && <ErrorMes />}
+        <ImageGallery images={images} />
+        {this.state.images.length > 0 && (
+          <LoadMore onClick={this.onLoadMore}>Load more</LoadMore>
+        )}
+        <Toaster position="top-right" />
       </Layout>
     );
   }
